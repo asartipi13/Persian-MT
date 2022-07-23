@@ -1,14 +1,17 @@
 {
     "model_repo": "google/mt5-small",
-    "model_dir": "/content/drive/MyDrive/outs",
-    "data_dir": "/content/drive/MyDrive/data/Mizan",
+    "model_dir": "./outs",
+    "data_dir": "./data/Mizan",
     "max_seq_len": 20,
-    "n_epochs": 2,
-    "train_batch_size": 32,
-    "test_batch_size": 20,
-    "dev_batch_size": 32,
-    "print_freq": 5,
-    "checkpoint_freq": 10,
+    "max_seq_test_len": 50,
+    "n_epochs": 4,
+    "train_batch_size": 16,
+    "test_batch_size": 16,
+    "dev_batch_size": 16,
+    "print_freq": 1000,
+    "checkpoint_freq": 1000,
     "lr": 0.0005,
-    "max_ngram": 1
+    "max_ngram": 3,
+    "nrows": -1, 
+    "need_train": true
   }

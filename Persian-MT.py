@@ -1,7 +1,7 @@
 import time
-from datasets import load_dataset
+#from datasets import load_dataset
 from IPython.display import display
-from IPython.html import widgets
+# from IPython.html import widgets
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -17,6 +17,7 @@ from torchtext.data.metrics import bleu_score
 import wandb
 from transformers import get_linear_schedule_with_warmup
 from tqdm import tqdm_notebook
+from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 sns.set()
 import collections
@@ -55,7 +56,8 @@ def encode_target_str(text, tokenizer, seq_len, lang_token_map=Language_Token_Ma
 def format_translation_data(translations, lang_token_map, tokenizer, seq_len=128):
   # Choose a random 2 languages for in i/o
   langs = list(lang_token_map.keys())
-  input_lang, target_lang = np.random.choice(langs, size=2, replace=False)
+  input_lang, target_lang = ['en', 'fa']
+  #input_lang, target_lang = np.random.choice(langs, size=2, replace=False)
   # Get the translations for the batch
   input_text = translations[input_lang]
   target_text = translations[target_lang]
@@ -72,13 +74,13 @@ def format_translation_data(translations, lang_token_map, tokenizer, seq_len=128
   return input_token_ids, target_token_ids
 
 
-def transfrom_batch(batch, lang_token_map, tokenizer):
+def transfrom_batch(batch, lang_token_map, tokenizer, seq_len=128):
   inputs = []
   targets = []
 
   for translation_set in batch.iterrows():
     formatted_data = format_translation_data(
-        translation_set[1], lang_token_map, tokenizer, 32)
+        translation_set[1], lang_token_map, tokenizer, seq_len)
     
     if formatted_data is None:
       continue
@@ -87,27 +89,33 @@ def transfrom_batch(batch, lang_token_map, tokenizer):
     inputs.append(input_ids.unsqueeze(0))
     targets.append(target_ids.unsqueeze(0))
     
-  batch_input_ids = torch.cat(inputs).cuda()
-  batch_target_ids = torch.cat(targets).cuda()
+#   batch_input_ids = torch.cat(inputs).cuda()
+#   batch_target_ids = torch.cat(targets).cuda()
+
+  batch_input_ids = torch.cat(inputs)
+  batch_target_ids = torch.cat(targets)
 
   return batch_input_ids, batch_target_ids
 
 
-def get_data_generator(dataset, lang_token_map, tokenizer, batch_size=32):
+def get_data_generator(dataset, lang_token_map, tokenizer, batch_size=32, seq_len=128):
     dataset = dataset.sample(frac=1)
     for i in range(0, len(dataset), batch_size):
         raw_batch = dataset.iloc[i:i+batch_size,:]
-        yield transfrom_batch(raw_batch, lang_token_map, tokenizer)
+        yield transfrom_batch(raw_batch, lang_token_map, tokenizer, seq_len)
     # return raw_batch
 
 
 def eval_model(model, gdataset, tokenizer, batch_size, max_iters=8):
-    test_generator = get_data_generator(gdataset, Language_Token_Mapping,tokenizer, batch_size)
+    test_generator = get_data_generator(gdataset, Language_Token_Mapping, tokenizer, batch_size, seq_len=max_seq_len)
     eval_losses = []
     for i, (input_batch, label_batch) in enumerate(test_generator):
         if i >= max_iters:
             break
 
+        input_batch = input_batch.to(device)
+        label_batch = label_batch.to(device)
+        
         model_out = model.forward(
             input_ids = input_batch,
             labels = label_batch)
@@ -144,7 +152,7 @@ def predict(df_test, model):
             batch_text = batch,
             target_lang = 'fa',
             tokenizer = tokenizer,
-            seq_len = model.config.max_length,
+            seq_len = max_seq_test_len,
             lang_token_map = Language_Token_Mapping)
 
         input_ids = inputs['input_ids']
@@ -164,7 +172,7 @@ def predict(df_test, model):
 
 def get_blue_score(df_test, predicted, max_n):
     persian = list(df_test['fa'].values)
-    real = [[sent.split()] for sent in persian]
+    real = [[sent.split()] for sent in persian][:len(predicted)]
     bl_score = bleu_score(predicted, real, max_n=max_n, weights=[1/max_n]*max_n)
     return bl_score
 
@@ -196,25 +204,28 @@ dev_path = data_dir + '/dev.csv'
 test_path = data_dir + '/test.csv'
 
 max_seq_len = sg['max_seq_len']
+max_seq_test_len = sg['max_seq_test_len']
 n_epochs = sg['n_epochs']
 
 train_batch_size = sg['train_batch_size']
 test_batch_size = sg['test_batch_size']
 dev_batch_size = sg['dev_batch_size']
+nrows = sg['nrows']
 
 print_freq = sg['print_freq']
 checkpoint_freq = sg['checkpoint_freq']
 lr = sg['lr']
 max_ngram = sg['max_ngram']
+need_train = sg['need_train']
 
 model_dir = "{}/{}_{}_{}".format(model_dir, model_repo.replace("/", "-"),data_dir.split('/')[-1] ,n_epochs)
 
 os.makedirs(model_dir, exist_ok=True)
-wandb.init(project=model_dir.split('/')[-1], entity="persian-mt", dir=model_dir)
+#wandb.init(project=model_dir.split('/')[-1], entity="persian-mt", dir=model_dir)
 
-df_train = pd.read_csv(train_path)
-df_dev = pd.read_csv(dev_path)
-df_test = pd.read_csv(test_path)
+df_train = pd.read_csv(train_path) if nrows == -1 else pd.read_csv(train_path, nrows=nrows)
+df_dev = pd.read_csv(dev_path) if nrows == -1 else pd.read_csv(dev_path, nrows=nrows)
+df_test = pd.read_csv(test_path) if nrows == -1 else pd.read_csv(test_path, nrows=nrows)
 
 # df_train.rename(columns={"English":"en", "Persian":"fa"}, inplace=True)
 # df_dev.rename(columns={"English":"en", "Persian":"fa"}, inplace=True)
@@ -228,8 +239,17 @@ n_batches = int(np.ceil(len(df_train) / train_batch_size))
 total_steps = n_epochs * n_batches
 n_warmup_steps = int(total_steps * 0.01)
 
-tokenizer = AutoTokenizer.from_pretrained(model_repo)
-model = AutoModelForSeq2SeqLM.from_pretrained(model_repo)
+tokenizer = AutoTokenizer.from_pretrained('./model-and-tokenizer/')
+model = None
+# model_repo
+if need_train:
+    model = AutoModelForSeq2SeqLM.from_pretrained('./model-and-tokenizer/')
+else:
+    model = torch.load(model_dir+ '/model.pt')
+
+# tokenizer.save_pretrained('./model-and-tokenizer/')
+# model.save_pretrained('./model-and-tokenizer/')
+
 model = model.to(device)
 
 
@@ -247,59 +267,63 @@ history_tota = collections.defaultdict(list)
 total_train_losss = []
 total_dev_losss = []
 
-for epoch_idx in range(n_epochs):
-    train_losses = []
-    dev_losses = []
-      # Randomize data order
-    data_generator = get_data_generator(df_train, Language_Token_Mapping, tokenizer, train_batch_size)
-    start_time = time.time()            
-    for batch_idx, (input_batch, label_batch) in tqdm_notebook(enumerate(data_generator), total=n_batches):
-        optimizer.zero_grad()
+if need_train:
+    for epoch_idx in range(n_epochs):
+        train_losses = []
+        dev_losses = []
+        # Randomize data order
+        data_generator = get_data_generator(df_train, Language_Token_Mapping, tokenizer, train_batch_size, max_seq_len)
+        start_time = time.time()            
+        for batch_idx, (input_batch, label_batch) in tqdm(enumerate(data_generator), total=n_batches):
+        # for batch_idx, (input_batch, label_batch) in enumerate(data_generator):
 
-        # Forward pass
-        model_out = model.forward(input_ids = input_batch, labels = label_batch)
+            optimizer.zero_grad()
+            input_batch = input_batch.to(device)
+            label_batch = label_batch.to(device)
+            # Forward pass
+            model_out = model.forward(input_ids = input_batch, labels = label_batch)
 
-        # Calculate loss and update weights
-        loss = model_out.loss
-        train_losses.append(loss.item())
-        loss.backward()
-        optimizer.step()
-        scheduler.step()
+            # Calculate loss and update weights
+            loss = model_out.loss
+            train_losses.append(loss.item())
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
 
-        # Print training update info
-        if (batch_idx + 1) % print_freq == 0:
-            avg_loss = np.mean(train_losses[-print_freq:])
-            print('Epoch: {} | Step: {} | Avg. loss: {:.3f} | lr: {}'.format(
-                epoch_idx+1, batch_idx+1, avg_loss, scheduler.get_last_lr()[0]))
-        
-        if (batch_idx + 1) % checkpoint_freq == 0:
-            dev_loss = eval_model(model, df_dev)
-            # print('Saving model with test loss of {:.3f}'.format(dev_loss))
-            dev_losses.append(dev_loss)
-            # torch.save(model.state_dict(), model_dir+ '/model.pt')
+            # Print training update info
+            if (batch_idx) % print_freq == 0:
+                avg_loss = np.mean(train_losses[-print_freq:])
+                print('Epoch: {} | Step: {} | Avg. loss: {:.3f} | lr: {}'.format(
+                    epoch_idx+1, batch_idx+1, avg_loss, scheduler.get_last_lr()[0]))
+            
+            if (batch_idx) % checkpoint_freq == 0:
+                dev_loss = eval_model(model, df_dev, tokenizer, dev_batch_size)
+                # print('Saving model with test loss of {:.3f}'.format(dev_loss))
+                dev_losses.append(dev_loss)
+                torch.save(model, model_dir+ '/model.pt')
 
-    epoch_train_loss = np.mean(train_losses)
-    epoch_dev_loss = np.mean(dev_losses)
+        epoch_train_loss = np.mean(train_losses)
+        epoch_dev_loss = np.mean(dev_losses)
 
-    total_train_losss.extend(train_losses)
-    total_dev_losss.extend(dev_losses)
+        total_train_losss.extend(train_losses)
+        total_dev_losss.extend(dev_losses)
 
-    wandb.log({"train_loss": float(epoch_train_loss),
-               "val_loss":float(epoch_dev_loss)})
+        # wandb.log({"train_loss": float(epoch_train_loss),
+        #            "val_loss":float(epoch_dev_loss)})
 
-    history['train_loss'].append(epoch_train_loss)
-    history['val_loss'].append(epoch_dev_loss)
-    history['time'].append(time.time() - start_time)
+        history['train_loss'].append(epoch_train_loss)
+        history['val_loss'].append(epoch_dev_loss)
+        history['time'].append(time.time() - start_time)
 
 
-pd.DataFrame({"total_train_losss": total_train_losss}).to_csv(model_dir + '/total_train_losss.csv')
-pd.DataFrame({"total_dev_losss": total_dev_losss}).to_csv(model_dir + '/total_dev_losss.csv')
-pd.DataFrame(history).to_csv(model_dir + '/history.csv')
+    pd.DataFrame({"total_train_losss": total_train_losss}).to_csv(model_dir + '/total_train_losss.csv')
+    pd.DataFrame({"total_dev_losss": total_dev_losss}).to_csv(model_dir + '/total_dev_losss.csv')
+    pd.DataFrame(history).to_csv(model_dir + '/history.csv')
 
 
 
 predicted = predict(df_test, model)
-print(predicted)
+#print(predicted)
 pd.DataFrame({"predicted": predicted}).to_csv(model_dir + '/predicted.csv')
 
 bl_score = get_blue_score(df_test, predicted, max_n=max_ngram)
