@@ -136,6 +136,6 @@ dmypy.json
 *.pt
 
 /outs
-/model-and-tokenizer
+/google
 /data
 .vscode
