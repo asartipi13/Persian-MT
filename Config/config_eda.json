@@ -1,0 +1,6 @@
+{
+    "file_path": "data/TEP/en-fa.csv",
+    "output_directory": "data/TEP/eda",
+    "comment_column_name": "fa",
+    "preproccess_config": "False"
+}
