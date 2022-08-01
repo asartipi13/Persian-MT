@@ -11,6 +11,7 @@ import torch
 from torch import optim
 from torch.nn import functional as F
 from transformers import AdamW, AutoModelForSeq2SeqLM, AutoTokenizer
+import os, glob
 
 from torchtext.data.metrics import bleu_score
 
@@ -261,8 +262,8 @@ def train_process(src, tar, model_dir, logger):
     total_dev_losss = []
 
     best_val_loss = np.Infinity
-    best_model = deepcopy(model)
-
+    # best_model = deepcopy(model)
+    bl_scores = []
     if need_train:
 
         try:
@@ -294,40 +295,51 @@ def train_process(src, tar, model_dir, logger):
                         print('Epoch: {} | Step: {} | Avg. loss: {:.3f} | lr: {}'.format(
                             epoch_idx+1, batch_idx+1, avg_loss, scheduler.get_last_lr()[0]))
                         
-                        logger.log({"certain_steps_train_loss": float(avg_loss)})
+                        # logger.log({"certain_steps_train_loss": float(avg_loss)})
 
                     
                     if (batch_idx) % checkpoint_freq == 0:
                         dev_loss = eval_model(model, df_dev, tokenizer, dev_batch_size, src, tar, max_iters=8)
                         # print('Saving model with test loss of {:.3f}'.format(dev_loss))
                         dev_losses.append(dev_loss)
+                        print('Epoch: {} | Step: {} | Dev. loss: {:.3f} | lr: {}'.format(
+                            epoch_idx+1, batch_idx+1, dev_loss, scheduler.get_last_lr()[0]))
                         torch.save(model, model_dir + '/model.pt')
 
-                        logger.log({"certain_steps_val_loss": float(dev_loss)})
+                        # logger.log({"certain_steps_val_loss": float(dev_loss)})
 
                 epoch_train_loss = np.mean(train_losses)
                 epoch_dev_loss = np.mean(dev_losses)
 
                 if best_val_loss > epoch_dev_loss:
                     best_val_loss = epoch_dev_loss
-                    torch.save(model, model_dir + '/best_model.pt')
+                    for filename in glob.glob(model_dir + '/best_model*'):
+                        os.remove(filename) 
+                    torch.save(model, model_dir + '/best_model_{}.pt'.format(str(epoch_idx+1)))
 
                 total_train_losss.extend(train_losses)
                 total_dev_losss.extend(dev_losses)
 
-                logger.log({"train_loss": float(epoch_train_loss),
-                        "val_loss": float(epoch_dev_loss)})
+                # logger.log({"train_loss": float(epoch_train_loss),
+                #         "val_loss": float(epoch_dev_loss)})
 
                 history['train_loss'].append(epoch_train_loss)
                 history['val_loss'].append(epoch_dev_loss)
                 history['time'].append(time.time() - start_time)
-
+                
+                # blue score for each epoch
+                predicted = predict(df_test, model, src, tar)
+                bl_score = get_blue_score(df_test, predicted, max_n=max_ngram, tar=tar)
+                bl_scores.append(bl_score)
+ 
             pd.DataFrame({"total_train_losss": total_train_losss}).to_csv(model_dir + '/total_train_losss.csv')
             pd.DataFrame({"total_dev_losss": total_dev_losss}).to_csv(model_dir + '/total_dev_losss.csv')
             pd.DataFrame(history).to_csv(model_dir + '/history.csv')
+            pd.DataFrame({"blue_score": bl_scores}).to_csv(model_dir + '/each_bl_score.csv')
+
 
         except Exception as e:
-            with open(model_dir+'/error.txt') as f:
+            with open(model_dir+'/error.txt', 'w') as f:
                 f.write(str(e))
 
             pd.DataFrame({"total_train_losss": total_train_losss}).to_csv(model_dir + '/total_train_losss.csv')
@@ -344,16 +356,23 @@ def test_process(src, tar, model_dir):
 
 langs = list(Language_Token_Mapping.keys())
 for i in range(1):
+
+
     source_lang = langs[i]
     target_lang = langs[1-i]
-    
-    new_model_dir = "{}/{}_{}_{}_{}_{}".format(model_dir, model_repo.replace("/", "-"),data_dir.split('/')[-1], source_lang, target_lang ,n_epochs)
 
+    if source_lang=='en':
+        source_lang = target_lang
+        target_lang = 'en'
+
+    new_model_dir = "{}/{}_{}_{}_{}_{}".format(model_dir, model_repo.replace("/", "-"), data_dir.split('/')[-1], source_lang, target_lang ,n_epochs)
+    # new_model_dir = "{}/{}_{}_{}_{}_{}".format(model_dir, model_repo.replace("/", "-"), "OS_", source_lang, target_lang ,n_epochs)
+    
     os.makedirs(new_model_dir, exist_ok=True)
-    wandb.init(project=new_model_dir.split('/')[-1], entity="persian-mt", dir=new_model_dir)
+    # wandb.init(project=new_model_dir.split('/')[-1], entity="persian-mt", dir=new_model_dir)
 
     if need_train:
-        train_process(source_lang, target_lang, new_model_dir, wandb)
+        train_process(source_lang, target_lang, new_model_dir, None)
 
     test_process(source_lang, target_lang, new_model_dir)
 
