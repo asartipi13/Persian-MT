@@ -8,9 +8,8 @@
 <br/><br/>
 # Persian-English
 
-<p align="center">
+<div align="center">
 Word level <b>Persian-English</b>
-</p>
 
 |       dataset       | avg_fa | min_fa | max_fa | 92%_fa |  all_fa | unique_fa | avg_en | min_en | max_en | 92%_en |  all_en | unique_en |
 |:-------------------:|:------:|:------:|:------:|:------:|:-------:|:---------:|:------:|:------:|:------:|:------:|:-------:|:---------:|
@@ -18,11 +17,15 @@ Word level <b>Persian-English</b>
 | PEPC_Onedirectional |   23   |    6   |   194  |   38   | 3650404 |   132567  |   21   |    7   |   153  |   36   | 3391029 |   131110  |
 |         TEP         |    7   |    1   |   32   |   14   |  682786 |   36793   |    8   |    1   |   37   |   14   |  716605 |   22615   |
 
+
+</div>
+
+
 <br/><br/>
 
-<p align="center">
+<div align="center">
 Charachter level <b>Persian-English</b>
-</p>
+
 
 |       dataset       | avgc_fa | minc_fa | maxc_fa | avgc_en | minc_en | maxc_en |
 |:-------------------:|:-------:|:-------:|:-------:|:-------:|:-------:|:-------:|
@@ -30,7 +33,8 @@ Charachter level <b>Persian-English</b>
 | PEPC_Onedirectional |   112   |    23   |   870   |   126   |    17   |   870   |
 |         TEP         |    33   |    1    |   144   |    37   |    3    |   158   |
 
-![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Bidirectional/eda/en_ch_length_distrobution.png?raw=true)
+
+</div>
 
 
 
