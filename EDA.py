@@ -109,7 +109,7 @@ def draw_charts(df, config):
 
     for col in df.columns:
         try:
-            name = col + " distrobution"
+            name = col + "_distrobution"
             path = '{}/{}.png'.format(config['output_directory'], name)
 
             fig = go.Figure()

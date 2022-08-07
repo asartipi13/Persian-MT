@@ -33,11 +33,22 @@ Charachter level <b>Persian-English</b>
 | PEPC_Onedirectional |   112   |    23   |   870   |   126   |    17   |   870   |
 |         TEP         |    33   |    1    |   144   |    37   |    3    |   158   |
 
-
 </div>
 
 
 
+# TEP
+Persian word distrobution             |  English word distrobution
+:-------------------------:|:-------------------------:
+![](https://github.com/asartipi13/Persian-MT/blob/main/data/TEP/eda/fa_length_distrobution.png?raw=true)  |  ![](https://github.com/asartipi13/Persian-MT/blob/main/data/TEP/eda/en_length_distrobution.png?raw=true)
+
+
+Persian charachter distrobution             |  English charachter distrobution
+:-------------------------:|:-------------------------:
+![](https://github.com/asartipi13/Persian-MT/blob/main/data/TEP/eda/fa_ch_length_distrobution.png?raw=true)  |  ![](https://github.com/asartipi13/Persian-MT/blob/main/data/TEP/eda/en_ch_length_distrobution.png?raw=true)
+
+
+# PEPC_Bidirectional
 Persian word distrobution             |  English word distrobution
 :-------------------------:|:-------------------------:
 ![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Bidirectional/eda/fa_length_distrobution.png?raw=true)  |  ![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Bidirectional/eda/en_length_distrobution.png?raw=true)
@@ -46,3 +57,16 @@ Persian word distrobution             |  English word distrobution
 Persian charachter distrobution             |  English charachter distrobution
 :-------------------------:|:-------------------------:
 ![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Bidirectional/eda/fa_ch_length_distrobution.png?raw=true)  |  ![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Bidirectional/eda/en_ch_length_distrobution.png?raw=true)
+
+
+
+# PEPC_Onedirectional
+Persian word distrobution             |  English word distrobution
+:-------------------------:|:-------------------------:
+![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Onedirectional/eda/fa_length_distrobution.png?raw=true)  |  ![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Onedirectional/eda/en_length_distrobution.png?raw=true)
+
+
+Persian charachter distrobution             |  English charachter distrobution
+:-------------------------:|:-------------------------:
+![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Onedirectional/eda/fa_ch_length_distrobution.png?raw=true)  |  ![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Onedirectional/eda/en_ch_length_distrobution.png?raw=true)
+
