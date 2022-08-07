@@ -30,6 +30,15 @@ Charachter level <b>Persian-English</b>
 | PEPC_Onedirectional |   112   |    23   |   870   |   126   |    17   |   870   |
 |         TEP         |    33   |    1    |   144   |    37   |    3    |   158   |
 
-![alt text](https://github.com/asartipi13/Persian-MT/data/PEPC_Bidirectional/en_ch_length_distrobution.png?raw=true)
+![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Bidirectional/eda/en_ch_length_distrobution.png?raw=true)
 
 
+
+Persian word distrobution             |  English word distrobution
+:-------------------------:|:-------------------------:
+![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Bidirectional/eda/fa_length_distrobution.png?raw=true)  |  ![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Bidirectional/eda/en_length_distrobution.png?raw=true)
+
+
+Persian charachter distrobution             |  English charachter distrobution
+:-------------------------:|:-------------------------:
+![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Bidirectional/eda/fa_ch_length_distrobution.png?raw=true)  |  ![](https://github.com/asartipi13/Persian-MT/blob/main/data/PEPC_Bidirectional/eda/en_ch_length_distrobution.png?raw=true)
