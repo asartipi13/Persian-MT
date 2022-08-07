@@ -1,298 +1,158 @@
-from re import template
+import json, hazm, stanza, os
+from operator import index
+from plotly import data
 import pandas as pd
-import nltk
-import collections as co
-from bidi.algorithm import get_display
-import arabic_reshaper
-from wordcloud_fa import WordCloudFa
-import os
-import hazm
-from tqdm import tqdm
 import plotly.graph_objects as go
 import plotly.express as px
-import preprocess
-import argparse
-import json
-import sys
 
-class error_handler():
 
-    class error(Exception):
-        def __init__(self, message):
-            super().__init__(message)
+nlp = stanza.Pipeline(lang='en', processors='tokenize', tokenize_no_ssplit=True)
 
-    def instance(object, object_name, type):
-        # check if parameter object is instance of parameter type
-        if isinstance(object, type):
-            return '1'
-        message = f"{object_name} is invalid! {object_name} is {object}, but it should be {type}"
-        
-        raise error_handler.error(message)
+def extract_information(df, config):
+    fa_tokens = []
+    fa_length = []
+    fa_ch_length = []
+
+    en_crp = ''
+    en_tokens = []
+    en_length = []
+    en_ch_length = []
+
+    for index, row in df.iterrows():
+        row['fa'] = str(row['fa'])
+        tokens = hazm.word_tokenize(row['fa'])
+        fa_tokens.extend(tokens)
+        fa_length.append(len(tokens))
+        fa_ch_length.append(len(row['fa']))
+
+        row['en'] = str(row['en'])
+        row['en'] += '\n\n'
+        en_crp+= row['en']
+        en_ch_length.append(len(row['en']))
+
+        # if index == 50:
+        #     break
+
+    doc = nlp(en_crp)
+    for i, sentence in enumerate(doc.sentences):
+        en_length.append(len(sentence.tokens))
+        [en_tokens.append(token.text) for token in sentence.tokens]
+
+    # df = df[:51]
+    df['fa_length'] = fa_length
+    df['en_length'] = en_length
     
-    def column_name_validation(column_name, column_variable_name, dataframe, dataframe_variable_name):
+    df['fa_ch_length'] = fa_ch_length
+    df['en_ch_length'] = en_ch_length
 
-        # checks if type of column name and dataframe is valid
-        error_handler.instance(column_name,column_variable_name, str)
-        error_handler.instance(dataframe, dataframe_variable_name, pd.DataFrame)
+    df['fa_unique'] = [len(set(fa_tokens))] * len(df)
+    df['en_unique'] = [len(set(en_tokens))] * len(df)
 
-        #checks if column name exists in dataframe columns
-        if column_name in dataframe.columns:
-            return '1'
+    df[['fa_length', 'en_length', 'fa_ch_length', 'en_ch_length', 'fa_unique', 'en_unique']].to_csv(config['output_directory'] + '/general.csv')
 
-        message = f"{column_variable_name} is invalid! There is no {column_name} column in the {dataframe_variable_name}"
-        
-        raise error_handler.error(message)
+def data_gl_than(data, less_than=10, greater_than=0.0, col='fa_length'):
+    data_length = data[col].values
+    data_glt = sum([1 for length in data_length if greater_than < length <= less_than])
+    data_glt_rate = (data_glt / len(data_length)) * 100
+    # print(f'Texts with word length of greater than {greater_than} and less than {less_than} includes {data_glt_rate:.2f}% of the whole!')
+    return data_glt_rate
+
+
+def get_seq_len(df, col):
+    minl = int(df[col].describe()[3])
+    maxl = int(df[col].describe()[7])
+    for less_than in range(minl,maxl):
+        data_glt_rate = data_gl_than(data=df, less_than=less_than, col=col)
+        if data_glt_rate >= 92:
+            return less_than
+
+def get_dataset_stat(df, config):
+
+    info_word = {
+
+        "avg_fa":int(df.describe()['fa_length'][1]),
+        "min_fa":int(df.describe()['fa_length'][3]),
+        "max_fa":int(df.describe()['fa_length'][7]),
+        "92%_fa": int(get_seq_len(df, 'fa_length')),
+        "all_fa": int(df['fa_length'].sum()),
+        "unique_fa": int(df['fa_unique'][0]),
+
+        "avg_en":int(df.describe()['en_length'][1]),
+        "min_en":int(df.describe()['en_length'][3]),
+        "max_en":int(df.describe()['en_length'][7]),
+        "92%_en": int(get_seq_len(df, 'en_length')),
+        "all_en": int(df['en_length'].sum()),
+        "unique_en": int(df['en_unique'][0])
+
+    }
+
+    df_info_word = pd.DataFrame(info_word, index=[0])
+    df_info_word.to_csv(config['output_directory'] + '/infor_word.csv', index=False)
     
-    def directory(directory, directory_name):
+    info_char = {
 
-        # checks if directory have valid type
-        error_handler.instance(directory, directory_name, str)
+        "avgc_fa":int(df.describe()['fa_ch_length'][1]),
+        "minc_fa":int(df.describe()['fa_ch_length'][3]),
+        "maxc_fa":int(df.describe()['fa_ch_length'][7]),
 
-        # checks if output directory exists
-        if os.path.isdir(directory):
-            return '1'
+        "avgc_en":int(df.describe()['en_ch_length'][1]),
+        "minc_en":int(df.describe()['en_ch_length'][3]),
+        "maxc_en":int(df.describe()['en_ch_length'][7]),
 
-        message = f"\"{directory_name}\" is invalid! Directory \"{directory}\" doesn't exist!"
-        
-        raise error_handler.error(message)
+    }
 
-    def file(output_directory, name, extension, mode=1):
-        # it take care no data is removed or overwritten
-        # in the case output file name exists it creates new file names
-        # mode parameter controls if extension of a file should be returned or not
-        # so that in mode 1 path is returned with the ile extension
-        # in mode 0 path is returned without the file extension
+    df_info_char = pd.DataFrame(info_char, index=[0])
+    df_info_char.to_csv(config['output_directory'] + '/infor_char.csv', index=False)
+    
 
-        path = os.path.join(output_directory, name)
-        i = 0
-        while os.path.isfile(path+extension):
-            path = os.path.join(output_directory, name+str(i))
-            i+=1
-        if mode:
-            path+=extension
-        return path
+def draw_charts(df, config):
 
-     
-class eda:
-
-    ####### methods #############################################################
-
-    def __init__(
-        self,
-        file_path,
-        output_directory,
-        comment_column_name,
-        preproccess_config=False
-    ):
-               
-        # config class attributes
-        self.output_directory = output_directory
-        if not os.path.isdir(output_directory):
-            os.makedirs(output_directory)
-
-        if preproccess_config and os.path.isfile(preproccess_config):
-            with open(preproccess_config, 'r+') as f:
-                preproccess_config = json.load(f)
-            preprocess.DataProcessor(**preproccess_config)
-            file_path = preproccess_config['output_directory']
-            comment_column_name = 'comment'
-
-        self.dataframe = pd.read_csv(file_path, encoding='utf-8').dropna(subset=[comment_column_name])
-
-        self.comment_column_name = comment_column_name
-        self.word_tokens = []
-        
-        #because the frequeny tokenize use hazm.word_tokenizer in order to get words, there is no need for any other tokenizer for word frequency plot
-        a = lambda x:x
-        # config tqdm in order to create progresss bar
-        log = tqdm(total=0, position=0, bar_format='{desc}')
-        progressbar = tqdm(total=6, position=1, desc='eda')
-        # dict of all class functions as dict keys and their arguments as dict values
-        driver_function_dict = [
-            [eda.word_cloud, []],
-            [eda.comment_length_destribution, []],
-            [eda.word_length_destribution, []],
-            [eda.token_frequency, [a, 'word']],
-            [eda.token_frequency, [nltk.ngrams, 'bigrams' , {'n':2}]],
-            [eda.token_frequency, [nltk.ngrams, 'trigrams' , {'n':3}]],
-        ]
-
-        for f, args in driver_function_dict:
-            f(self , *args)
-            log.set_description_str('Current: '+str(self.output_directory.split('\\')[-3:]))
-            progressbar.update(1)
-
- 
-        # final cleaning of  progressbar and its log
-        log.reset()
-        log.set_description_str('Finished!')
-        log.close()
-        progressbar.update(6)
-        progressbar.close()
-
-
-    def fix_persian_text_misorder(x):
-        # some time word orders change when you want to use them in matplotlib or opencv. It needed to be reshaped.
-        return get_display(arabic_reshaper.reshape(x))
-
-    def word_cloud(self):
-
+    for col in df.columns:
         try:
-            # create a text from all comments
-            text = self.dataframe[self.comment_column_name].to_string(index = False, header = False).replace('\n', ' ') 
+            name = col + " distrobution"
+            path = '{}/{}.png'.format(config['output_directory'], name)
 
-            # wordcloud config
-            wc = WordCloudFa(width=1200, height=800, persian_normalize=True, include_numbers=False, collocations=False,background_color='white')
-            
-            # generate wordcloud
-            wc = wc.generate(text)
-            
-            # save generated image as png file in output folder
-            wc = wc.to_image()
-            path = error_handler.file(self.output_directory, 'wordcloud', '.png')
-            wc.save(path)
-                
-        except Exception as e:
-            print('There is a problem in word_cloud!')
-            raise e
-
-    def comment_length_destribution(self):
-
-        try:
-
-            name = 'comment length destribution'
-            path = error_handler.file(self.output_directory, name, '.png')
-
-            # compute length of a comment
-            self.dataframe['comment length'] = self.dataframe[self.comment_column_name].apply(lambda x: len(x))
-
-            # create histogram plot and config it
             fig = go.Figure()
-            fig = px.histogram(self.dataframe, x='comment length')
-            #fig.update_xaxes(range=[self.dataframe['comment length'].min(), self.dataframe['comment length'].min()])
+            fig = px.histogram(df, x=col)
             fig.update_layout(
                 title_text=name,
-                xaxis_title_text='Comment Character-Level Length',
-                yaxis_title_text='Frequency',
+                xaxis_title_text='Length',
+                yaxis_title_text='Count',
                 bargap=0.2,
                 bargroupgap=0.2
             )
-
-            # save histogram
             fig.write_image(path, scale=2)
 
         except Exception as e:
-            print('there is a error in comment_length_destribution')
-            raise e
-    
-    def word_length_destribution(self):
-
-        try:
-
-            name = 'word length destribution'
-            path = error_handler.file(self.output_directory, name, '.png')
-
-            # compute words
-            if not bool(self.word_tokens):
-                self.dataframe[self.comment_column_name].apply(lambda x : self.word_tokens.extend(hazm.word_tokenize(x)))
-            
-            # compute words length
-            words_length = list(map(len, self.word_tokens))
-            
-            ####### temp ########################################################
-            #text = self.dataframe[self.comment_column_name].to_string(index = False, header = False).replace('\n', ' ') 
-            #words_length = list(map(len, text.split()))
-            #df = pd.DataFrame({'word':text.split(),'word length':words_length})
-            #df = df.loc[df['word length'] > 10]
-            #df.to_excel(error_handler.file(self.output_directory, name, '.xlsx'))
-            #####################################################################
-
-            # create historam plot and config it
-            fig = go.Figure()
-            fig = px.histogram(x=words_length)
-            fig.update_layout(
-                title_text=name,
-                xaxis_title_text='Word Length Destribution',
-                yaxis_title_text='Frequency',
-                bargap=0.2,
-                bargroupgap=0.2
-            )
-
-            # save histogram
-            fig.write_image(path, scale=2)
-
-        except Exception as e:
-            print('there is a error in comment_length_destribution')
+            print('there is a error in chart drawing')
             raise e
 
-    def token_frequency(self, tokenizer=None, token_name='word', args = dict()):
-        
-        try:
-
-            name = f'{token_name.title()} Frequency'
-            path = error_handler.file(self.output_directory, name, '.png')
-
-            # in order to lessen compution it check if wordtokens computed before or not
-            if not bool(self.word_tokens):
-                self.dataframe[self.comment_column_name].apply(lambda x : self.word_tokens.extend(hazm.word_tokenize(x)))
-            
-            # compute tokens
-            tokens = []
-            tokens.extend(tokenizer(self.word_tokens, **args))
-            
-            tokens = list(map(str, tokens))
-
-            # count tokens and get most common ones
-            tokens = co.Counter(tokens).most_common(30)      
-            tokens, count = zip(*tokens)
-
-            # create bar plot and config it
-            fig = go.Figure()
-            fig = px.bar(y=tokens, x=count, orientation='h')
-            fig.update_layout(
-                title_text=name,
-                xaxis_title_text='Count',
-                yaxis_title_text=token_name.title(),
-                bargap=0.2,
-                bargroupgap=0.2
-            )
-            fig.update_yaxes(
-                dtick=1
-            )
-
-            # save bar plot
-            fig.write_image(path, scale = 2)
-
-        except Exception as e:
-            print('there is a error in token_frequency')
-            raise e
-
-    def generate_config_template(output_directory):
-        
-        template={
-            'file_path':'path_to_your_dataset',
-            'output_directory': 'output_directory_path_for_generated_files',
-            'comment_column_name': 'comment_column_name_in_your_dataset',
-            'preproccess_config':'if_you_want_to_do_preprocess_pass_path_of_preproccess_class_config_json_file_to_it_otherwise_do_not_pass_it'
-        }
-        
-        path = error_handler.file(output_directory, 'config_eda', '.json')
-        with open(path, 'w') as f:
-            json.dump(template, f, indent=1)
-    #############################################################################
-
-
-
-
-####################################### driver code ############################################
 
 if __name__ == '__main__':
     
     config_path = './Config/config_eda.json'
 
-
     with open(str(config_path), 'r+') as f:
         config = json.load(f)
+
+
+    os.makedirs(config['output_directory'], exist_ok=True)
+
+    df = pd.read_csv(config['file_path'])
+    extract_information(df, config)
+
+    df = pd.read_csv(config['output_directory'] + '/general.csv')
+    get_dataset_stat(df, config)
+    draw_charts(df[['fa_length', 'en_length', 'fa_ch_length', 'en_ch_length']], config)
+
+
+
+
+
     
-    e = eda(**config)
- 
+
+
+
+
+    
+
