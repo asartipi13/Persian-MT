@@ -9,6 +9,19 @@
 # Persian-English
 
 <div align="center">
+
+|       datasets      |   train   |   dev  |   test  |    all    |
+|:-------------------:|:---------:|:------:|:-------:|:---------:|
+|        Mizan        | 1006430.0 | 5000.0 | 10166.0 | 1021596.0 |
+|  PEPC_Bidirectional |  175442.0 | 5000.0 | 19494.0 |  199936.0 |
+| PEPC_Onedirectional |  138005.0 | 5000.0 | 15334.0 |  158339.0 |
+|         TEP         |  72748.0  | 5000.0 |  8084.0 |  85832.0  |
+|        TEP++        |  515925.0 | 5000.0 | 57326.0 |  578251.0 |
+|    OpenSubtitles    | 1000000.0 | 2000.0 |  2000.0 | 1004000.0 |
+</div>
+
+
+<div align="center">
 Word level <b>Persian-English</b>
 
 |       dataset       | avg_fa | min_fa | max_fa | 92%_fa |  all_fa | unique_fa | avg_en | min_en | max_en | 92%_en |  all_en | unique_en |
