@@ -1,54 +1,100 @@
-import json, hazm, stanza, os
-from operator import index
+import json, os
 from plotly import data
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
+import sparknlp
+from sparknlp.base import *
+from sparknlp.annotator import *
+from pyspark.ml import Pipeline
 
-nlp = stanza.Pipeline(lang='en', processors='tokenize', tokenize_no_ssplit=True)
+
+from pyspark.sql import SparkSession
+from pyspark.sql.types import *
+
+
+# spark = sparknlp.start()
+
+
+spark = SparkSession.builder \
+    .appName("Spark NLP")\
+    .master("local[4]")\
+    .config("spark.driver.memory","16G")\
+    .config("spark.driver.maxResultSize", "0") \
+    .config("spark.kryoserializer.buffer.max", "2000M")\
+    .config("spark.jars.packages", "com.johnsnowlabs.nlp:spark-nlp_2.12:4.0.2")\
+    .getOrCreate()
+
+def get_pipeline(col):
+
+    documentAssembler = DocumentAssembler() \
+        .setInputCol(col) \
+        .setOutputCol("document")
+
+    sentenceDetector = SentenceDetector() \
+        .setInputCols(["document"]) \
+        .setOutputCol("sentence")
+
+    regexTokenizer = Tokenizer() \
+        .setInputCols(["sentence"]) \
+        .setOutputCol("token")
+
+    finisher = Finisher() \
+        .setInputCols(["token"]) \
+        .setIncludeMetadata(True)
+    
+    pipeline = Pipeline().setStages([
+    documentAssembler,
+    sentenceDetector,
+    regexTokenizer,
+    finisher
+    ])
+    return pipeline
 
 def extract_information(df, config):
+
+    df_general = pd.DataFrame({})
+
+    fa_pip = get_pipeline('fa')
+    en_pip = get_pipeline('en')
+    
+    fa = fa_pip.fit(df).transform(df).select("finished_token", 'fa')
+    en = en_pip.fit(df).transform(df).select("finished_token", 'en')
+
+    result_fa = fa.collect()
+    result_en = en.collect()
+
     fa_tokens = []
     fa_length = []
     fa_ch_length = []
 
-    en_crp = ''
     en_tokens = []
     en_length = []
     en_ch_length = []
 
-    for index, row in df.iterrows():
-        row['fa'] = str(row['fa'])
-        tokens = hazm.word_tokenize(row['fa'])
-        fa_tokens.extend(tokens)
-        fa_length.append(len(tokens))
-        fa_ch_length.append(len(row['fa']))
 
-        row['en'] = str(row['en'])
-        row['en'] += '\n\n'
-        en_crp+= row['en']
-        en_ch_length.append(len(row['en']))
+    for item in result_fa:
+        fa_tokens.extend(item.finished_token)
+        fa_length.append(len(item.finished_token))
+        fa_ch_length.append(len(item.fa))
 
-        # if index == 50:
-        #     break
+    for item in result_en:
+        en_tokens.extend(item.finished_token)
+        en_length.append(len(item.finished_token))
+        en_ch_length.append(len(item.en))
 
-    doc = nlp(en_crp)
-    for i, sentence in enumerate(doc.sentences):
-        en_length.append(len(sentence.tokens))
-        [en_tokens.append(token.text) for token in sentence.tokens]
 
-    # df = df[:51]
-    df['fa_length'] = fa_length
-    df['en_length'] = en_length
-    
-    df['fa_ch_length'] = fa_ch_length
-    df['en_ch_length'] = en_ch_length
+    df_general = df_general.append({
+        "fa_length": fa_length,
+        "en_length": en_length,
+        "fa_ch_length": fa_ch_length,
+        "en_ch_length":en_ch_length,
+        "fa_unique": [len(set(fa_tokens))] * df.count(),
+        "en_unique": [len(set(en_tokens))] * df.count()
+    }, ignore_index=True)
 
-    df['fa_unique'] = [len(set(fa_tokens))] * len(df)
-    df['en_unique'] = [len(set(en_tokens))] * len(df)
-
-    df[['fa_length', 'en_length', 'fa_ch_length', 'en_ch_length', 'fa_unique', 'en_unique']].to_csv(config['output_directory'] + '/general.csv')
+    df_general.to_csv(config['output_directory'] + '/general.csv')
 
 def data_gl_than(data, less_than=10, greater_than=0.0, col='fa_length'):
     data_length = data[col].values
@@ -129,27 +175,35 @@ def draw_charts(df, config):
 
 
 if __name__ == '__main__':
-    
-    config_path = './Config/config_eda.json'
+    datasets = ['TEP', "TEP++", "Mizan", "OpenSubtitles", "PEPC_Bidirectional", "PEPC_Onedirectional"]
+
+    schema = StructType([StructField("fa", StringType(), True), StructField("en", StringType(), True)])
+
+    for d in datasets:
+        config_path = './Config/config_eda.json'
 
     with open(str(config_path), 'r+') as f:
         config = json.load(f)
+    
+    # config['file_path'] = './drive/MyDrive/data/{}/en-fa.csv'.format(d)
+    # config['output_directory'] = './data/{}/eda'.format(d)
 
+    print(d)
 
     os.makedirs(config['output_directory'], exist_ok=True)
 
     df = pd.read_csv(config['file_path'])
+    df = spark.createDataFrame(df, schema=schema)
+
     extract_information(df, config)
 
     df = pd.read_csv(config['output_directory'] + '/general.csv')
     get_dataset_stat(df, config)
     draw_charts(df[['fa_length', 'en_length', 'fa_ch_length', 'en_ch_length']], config)
+    print("finish {}".format(d))
 
 
 
-
-
-    
 
 
 
