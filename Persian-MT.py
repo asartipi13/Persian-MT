@@ -13,7 +13,8 @@ from torch.nn import functional as F
 from transformers import AdamW, AutoModelForSeq2SeqLM, AutoTokenizer
 import os, glob
 
-from torchtext.data.metrics import bleu_score
+# from torchtext.data.metrics import bleu_score
+from torchmetrics.functional import sacre_bleu_score
 
 import wandb
 from transformers import get_linear_schedule_with_warmup
@@ -245,16 +246,16 @@ def predict(df_test, model, src, tar):
         output_tokens = model.generate(input_ids=input_ids, attention_mask=attention_mask, num_beams=20, length_penalty=0.2, do_sample=False)
 
         preds = tokenizer.batch_decode(output_tokens, skip_special_tokens=True)
-        [predicted.append(res.split()) for res in preds]
+        predicted.extend(preds)
 
     return predicted
 
 
 
 def get_blue_score(df_test, predicted_target, max_n, tar):
-    target = list(df_test[tar].values)
-    real_target = [[sent.split()] for sent in target][:len(predicted_target)]
-    bl_score = bleu_score(predicted_target, real_target, max_n=max_n, weights=[1/max_n]*max_n)
+    target = list(df_test[tar].values)[:len(predicted_target)]
+    real_target = [[sent] for sent in target]
+    bl_score = sacre_bleu_score(predicted_target, real_target, n_gram=max_n)
     return bl_score
 
 
