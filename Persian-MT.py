@@ -60,8 +60,6 @@ test_batch_size = sg['test_batch_size']
 dev_batch_size = sg['dev_batch_size']
 nrows = sg['nrows']
 
-print_freq = sg['print_freq']
-checkpoint_freq = sg['checkpoint_freq']
 lr = sg['lr']
 max_ngram = sg['max_ngram']
 need_train = sg['need_train']
@@ -76,6 +74,12 @@ Language_Token_Mapping = {
 }
 
 n_batches = int(np.ceil(len(df_train) / train_batch_size))
+while ((n_batches-1) % 5 != 0):
+    n_batches -= 1
+
+print_freq = int((n_batches-1) / 5)
+checkpoint_freq = int((n_batches-1) / 5)
+
 total_steps = n_epochs * n_batches
 n_warmup_steps = int(total_steps * 0.01)
 
@@ -299,12 +303,12 @@ def train_process(src, tar, model_dir, logger):
 
                     
                     if (batch_idx) % checkpoint_freq == 0:
-                        dev_loss = eval_model(model, df_dev, tokenizer, dev_batch_size, src, tar, max_iters=8)
+                        dev_loss = eval_model(model, df_dev, tokenizer, dev_batch_size, src, tar, max_iters=16)
                         # print('Saving model with test loss of {:.3f}'.format(dev_loss))
                         dev_losses.append(dev_loss)
                         print('Epoch: {} | Step: {} | Dev. loss: {:.3f} | lr: {}'.format(
                             epoch_idx+1, batch_idx+1, dev_loss, scheduler.get_last_lr()[0]))
-                        torch.save(model, model_dir + '/model.pt')
+                        # torch.save(model, model_dir + '/model.pt')
 
                         # logger.log({"certain_steps_val_loss": float(dev_loss)})
 
@@ -332,6 +336,8 @@ def train_process(src, tar, model_dir, logger):
                 bl_score = get_blue_score(df_test, predicted, max_n=max_ngram, tar=tar)
                 bl_scores.append(bl_score)
  
+            torch.save(model, model_dir + '/last_model.pt')
+
             pd.DataFrame({"total_train_losss": total_train_losss}).to_csv(model_dir + '/total_train_losss.csv')
             pd.DataFrame({"total_dev_losss": total_dev_losss}).to_csv(model_dir + '/total_dev_losss.csv')
             pd.DataFrame(history).to_csv(model_dir + '/history.csv')
@@ -342,6 +348,8 @@ def train_process(src, tar, model_dir, logger):
             with open(model_dir+'/error.txt', 'w') as f:
                 f.write(str(e))
 
+            torch.save(model, model_dir + '/last_model.pt')
+            
             pd.DataFrame({"total_train_losss": total_train_losss}).to_csv(model_dir + '/total_train_losss.csv')
             pd.DataFrame({"total_dev_losss": total_dev_losss}).to_csv(model_dir + '/total_dev_losss.csv')
             pd.DataFrame(history).to_csv(model_dir + '/history.csv')
