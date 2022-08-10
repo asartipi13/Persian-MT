@@ -1,0 +1,17 @@
+
+gamil = persianmtbyam@gmail.com
+pass = 123456qwerty
+
+install vpn
+
+https://www.google.com/chrome/
+https://www.anaconda.com/
+https://code.visualstudio.com/download instal vs code
+
+
+intall packages
+
+!pip install git+https://github.com/huggingface/transformers.git
+!git clone https://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@github.com/asartipi13/Persian-MT.git
+
+!pip install -q sentencepiece datasets

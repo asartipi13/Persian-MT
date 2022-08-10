@@ -130,7 +130,7 @@ dmypy.json
 
 # datasets
 *.csv
-*.txt
+# *.txt
 
 # models
 *.pt
