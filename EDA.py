@@ -8,23 +8,13 @@ import sparknlp
 from sparknlp.base import *
 from sparknlp.annotator import *
 from pyspark.ml import Pipeline
-
-
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 
 
-# spark = sparknlp.start()
 
+spark = sparknlp.start()
 
-spark = SparkSession.builder \
-    .appName("Spark NLP")\
-    .master("local[4]")\
-    .config("spark.driver.memory","16G")\
-    .config("spark.driver.maxResultSize", "0") \
-    .config("spark.kryoserializer.buffer.max", "2000M")\
-    .config("spark.jars.packages", "com.johnsnowlabs.nlp:spark-nlp_2.12:4.0.2")\
-    .getOrCreate()
 
 def get_pipeline(col):
 
@@ -54,16 +44,12 @@ def get_pipeline(col):
 
 def extract_information(df, config):
 
-    df_general = pd.DataFrame({})
-
     fa_pip = get_pipeline('fa')
     en_pip = get_pipeline('en')
     
     fa = fa_pip.fit(df).transform(df).select("finished_token", 'fa')
     en = en_pip.fit(df).transform(df).select("finished_token", 'en')
 
-    result_fa = fa.collect()
-    result_en = en.collect()
 
     fa_tokens = []
     fa_length = []
@@ -73,28 +59,36 @@ def extract_information(df, config):
     en_length = []
     en_ch_length = []
 
+    result_fa = fa.collect()
 
     for item in result_fa:
         fa_tokens.extend(item.finished_token)
         fa_length.append(len(item.finished_token))
         fa_ch_length.append(len(item.fa))
+    
+    del result_fa
+    del fa
+
+    result_en = en.collect()
 
     for item in result_en:
         en_tokens.extend(item.finished_token)
         en_length.append(len(item.finished_token))
         en_ch_length.append(len(item.en))
+   
+    del result_en
+    del en
 
-
-    df_general = df_general.append({
+    df_general = pd.DataFrame({
         "fa_length": fa_length,
         "en_length": en_length,
         "fa_ch_length": fa_ch_length,
         "en_ch_length":en_ch_length,
         "fa_unique": [len(set(fa_tokens))] * df.count(),
         "en_unique": [len(set(en_tokens))] * df.count()
-    }, ignore_index=True)
+    })
 
-    df_general.to_csv(config['output_directory'] + '/general.csv')
+    df_general.to_csv(config['output_directory'] + '/general.csv', index=False)
 
 def data_gl_than(data, less_than=10, greater_than=0.0, col='fa_length'):
     data_length = data[col].values
@@ -111,6 +105,7 @@ def get_seq_len(df, col):
         data_glt_rate = data_gl_than(data=df, less_than=less_than, col=col)
         if data_glt_rate >= 92:
             return less_than
+    return -1
 
 def get_dataset_stat(df, config):
 
@@ -157,7 +152,7 @@ def draw_charts(df, config):
         try:
             name = col + "_distrobution"
             path = '{}/{}.png'.format(config['output_directory'], name)
-
+            df = df[df[col]<200]
             fig = go.Figure()
             fig = px.histogram(df, x=col)
             fig.update_layout(
@@ -175,32 +170,34 @@ def draw_charts(df, config):
 
 
 if __name__ == '__main__':
-    datasets = ['TEP', "TEP++", "Mizan", "OpenSubtitles", "PEPC_Bidirectional", "PEPC_Onedirectional"]
+    datasets = ['Mizan', 'PEPC_Bidirectional', 'PEPC_Onedirectional', 'TEP', 'TEP++', 'OpenSubtitles', 'Bible', 'Quran', 'ParsiNLU']
 
-    schema = StructType([StructField("fa", StringType(), True), StructField("en", StringType(), True)])
+    # schema = StructType([StructField("fa", StringType(), True), StructField("en", StringType(), True)])
+
+    # for d in datasets:
+    #     config_path = './Config/config_eda.json'
+
+    # with open(str(config_path), 'r+') as f:
+    #     config = json.load(f)
 
     for d in datasets:
-        config_path = './Config/config_eda.json'
+        config = {"file_path":"", "output_directory":""}
+        config['file_path'] = './drive/MyDrive/data/{}/en-fa.csv'.format(d)
+        config['output_directory'] = './data/{}/eda'.format(d)
 
-    with open(str(config_path), 'r+') as f:
-        config = json.load(f)
-    
-    # config['file_path'] = './drive/MyDrive/data/{}/en-fa.csv'.format(d)
-    # config['output_directory'] = './data/{}/eda'.format(d)
+        print(d)
 
-    print(d)
+        # os.makedirs(config['output_directory'], exist_ok=True)
 
-    os.makedirs(config['output_directory'], exist_ok=True)
+        # df = pd.read_csv(config['file_path'])
+        # df = spark.createDataFrame(df, schema=schema)
 
-    df = pd.read_csv(config['file_path'])
-    df = spark.createDataFrame(df, schema=schema)
+        # extract_information(df, config)
 
-    extract_information(df, config)
-
-    df = pd.read_csv(config['output_directory'] + '/general.csv')
-    get_dataset_stat(df, config)
-    draw_charts(df[['fa_length', 'en_length', 'fa_ch_length', 'en_ch_length']], config)
-    print("finish {}".format(d))
+        df = pd.read_csv(config['output_directory'] + '/general.csv')
+        # get_dataset_stat(df, config)
+        draw_charts(df[['fa_length', 'en_length', 'fa_ch_length', 'en_ch_length']], config)
+        print("finish {}".format(d))
 
 
 
