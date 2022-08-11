@@ -266,7 +266,7 @@ def train_process(src, tar, model_dir, logger):
     total_train_losss = []
     total_dev_losss = []
 
-    best_belu_loss = np.Infinity
+    best_belu_loss = -1
     # best_model = deepcopy(model)
     bl_scores = []
     if need_train:
@@ -332,7 +332,7 @@ def train_process(src, tar, model_dir, logger):
                 bl_score = get_blue_score(df_dev, predicted, max_n=max_ngram, tar=tar)
                 bl_scores.append(bl_score)
 
-                if best_belu_loss > bl_score:
+                if best_belu_loss < bl_score:
                     best_belu_loss = bl_score
                     for filename in glob.glob(model_dir + '/best_model*'):
                         os.remove(filename) 
