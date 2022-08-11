@@ -18,3 +18,5 @@ intall packages
 
 
 conda install -n Persian-MT ipykernel --update-deps --force-reinstall
+
+conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch

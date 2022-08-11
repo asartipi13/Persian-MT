@@ -1,0 +1,2 @@
+tep train_seq = 15 test seq_len=50
+bible train_seq = 45 test seq_len=70

@@ -256,7 +256,7 @@ def get_blue_score(df_test, predicted_target, max_n, tar):
     target = list(df_test[tar].values)[:len(predicted_target)]
     real_target = [[sent] for sent in target]
     bl_score = sacre_bleu_score(predicted_target, real_target, n_gram=max_n)
-    return bl_score
+    return bl_score.item()
 
 
 def train_process(src, tar, model_dir, logger):
