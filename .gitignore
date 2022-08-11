@@ -137,6 +137,7 @@ dmypy.json
 
 /outs
 /google
+/facebook
 # /data
 .vscode
 

@@ -225,7 +225,7 @@ def predict(df_test, model, src, tar):
     source = list(df_test[src].values)
 
     predicted = []
-
+    print("len df test {}".format(len(df_test)))
     number_of_batches_in_test_df = int(len(df_test) / test_batch_size)
 
     for i in range(number_of_batches_in_test_df):
@@ -266,7 +266,7 @@ def train_process(src, tar, model_dir, logger):
     total_train_losss = []
     total_dev_losss = []
 
-    best_val_loss = np.Infinity
+    best_belu_loss = np.Infinity
     # best_model = deepcopy(model)
     bl_scores = []
     if need_train:
@@ -316,11 +316,6 @@ def train_process(src, tar, model_dir, logger):
                 epoch_train_loss = np.mean(train_losses)
                 epoch_dev_loss = np.mean(dev_losses)
 
-                if best_val_loss > epoch_dev_loss:
-                    best_val_loss = epoch_dev_loss
-                    for filename in glob.glob(model_dir + '/best_model*'):
-                        os.remove(filename) 
-                    torch.save(model, model_dir + '/best_model_{}.pt'.format(str(epoch_idx+1)))
 
                 total_train_losss.extend(train_losses)
                 total_dev_losss.extend(dev_losses)
@@ -333,10 +328,16 @@ def train_process(src, tar, model_dir, logger):
                 history['time'].append(time.time() - start_time)
                 
                 # blue score for each epoch
-                predicted = predict(df_test, model, src, tar)
-                bl_score = get_blue_score(df_test, predicted, max_n=max_ngram, tar=tar)
+                predicted = predict(df_dev, model, src, tar)
+                bl_score = get_blue_score(df_dev, predicted, max_n=max_ngram, tar=tar)
                 bl_scores.append(bl_score)
- 
+
+                if best_belu_loss > bl_score:
+                    best_belu_loss = bl_score
+                    for filename in glob.glob(model_dir + '/best_model*'):
+                        os.remove(filename) 
+                    torch.save(model, model_dir + '/best_model_{}.pt'.format(str(epoch_idx+1)))
+
             torch.save(model, model_dir + '/last_model.pt')
 
             pd.DataFrame({"total_train_losss": total_train_losss}).to_csv(model_dir + '/total_train_losss.csv')
