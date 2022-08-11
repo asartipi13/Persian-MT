@@ -87,19 +87,8 @@ n_warmup_steps = int(total_steps * 0.01)
 
 def get_basic_config():
     tokenizer = AutoTokenizer.from_pretrained(model_repo)
-    model = None
-    # model_repo
-    if need_train:
-        model = AutoModelForSeq2SeqLM.from_pretrained(model_repo)
-    else:
-        model = torch.load(best_model_path)
-
-    # tokenizer.save_pretrained('./model-and-tokenizer/')
-    # model.save_pretrained('./model-and-tokenizer/')
-
+    model = torch.load(best_model_path)
     model = model.to(device)
-
-
     special_token_dict = {"additional_special_tokens": list(Language_Token_Mapping.values())}
     tokenizer.add_special_tokens(special_token_dict)
     model.resize_token_embeddings(len(tokenizer))
@@ -187,26 +176,6 @@ def get_data_generator(dataset, lang_token_map, tokenizer, src, tar, batch_size=
         yield transfrom_batch(raw_batch, lang_token_map, tokenizer, seq_len, src, tar)
     # return raw_batch
 
-
-def eval_model(model, gdataset, tokenizer, batch_size, src, tar, max_iters=8):
-    test_generator = get_data_generator(gdataset, Language_Token_Mapping, tokenizer, src, tar, batch_size, seq_len=max_seq_len)
-    eval_losses = []
-    for i, (input_batch, label_batch) in enumerate(test_generator):
-        if i >= max_iters:
-            break
-
-        input_batch = input_batch.to(device)
-        label_batch = label_batch.to(device)
-        
-        model_out = model.forward(
-            input_ids = input_batch,
-            labels = label_batch)
-        eval_losses.append(model_out.loss.item())
-
-    return np.mean(eval_losses)
-
-
-
 def batch_encode_input_str(batch_text, target_lang, tokenizer, seq_len, lang_token_map=Language_Token_Mapping):
   target_lang_token = Language_Token_Mapping[target_lang]
   input_ids = tokenizer.batch_encode_plus(
@@ -258,104 +227,6 @@ def get_blue_score(df_test, predicted_target, max_n, tar):
     bl_score = sacre_bleu_score(predicted_target, real_target, n_gram=max_n)
     return bl_score.item()
 
-
-def train_process(src, tar, model_dir, logger):
-    history = collections.defaultdict(list)
-    history_tota = collections.defaultdict(list)
-
-    total_train_losss = []
-    total_dev_losss = []
-
-    best_belu_loss = np.Infinity
-    # best_model = deepcopy(model)
-    bl_scores = []
-    if need_train:
-
-        try:
-            for epoch_idx in range(n_epochs):
-                train_losses = []
-                dev_losses = []
-                # Randomize data order
-                data_generator = get_data_generator(df_train, Language_Token_Mapping, tokenizer, src, tar, train_batch_size, max_seq_len)
-                start_time = time.time()            
-                for batch_idx, (input_batch, label_batch) in tqdm(enumerate(data_generator), total=n_batches):
-                # for batch_idx, (input_batch, label_batch) in enumerate(data_generator):
-
-                    optimizer.zero_grad()
-                    input_batch = input_batch.to(device)
-                    label_batch = label_batch.to(device)
-                    # Forward pass
-                    model_out = model.forward(input_ids = input_batch, labels = label_batch)
-
-                    # Calculate loss and update weights
-                    loss = model_out.loss
-                    train_losses.append(loss.item())
-                    loss.backward()
-                    optimizer.step()
-                    scheduler.step()
-
-                    # Print training update info
-                    if (batch_idx) % print_freq == 0:
-                        avg_loss = np.mean(train_losses[-print_freq:])
-                        print('Epoch: {} | Step: {} | Avg. loss: {:.3f} | lr: {}'.format(
-                            epoch_idx+1, batch_idx+1, avg_loss, scheduler.get_last_lr()[0]))
-                        
-                        # logger.log({"certain_steps_train_loss": float(avg_loss)})
-
-                    
-                    if (batch_idx) % checkpoint_freq == 0:
-                        dev_loss = eval_model(model, df_dev, tokenizer, dev_batch_size, src, tar, max_iters=16)
-                        # print('Saving model with test loss of {:.3f}'.format(dev_loss))
-                        dev_losses.append(dev_loss)
-                        print('Epoch: {} | Step: {} | Dev. loss: {:.3f} | lr: {}'.format(
-                            epoch_idx+1, batch_idx+1, dev_loss, scheduler.get_last_lr()[0]))
-                        # torch.save(model, model_dir + '/model.pt')
-
-                        # logger.log({"certain_steps_val_loss": float(dev_loss)})
-
-                epoch_train_loss = np.mean(train_losses)
-                epoch_dev_loss = np.mean(dev_losses)
-
-
-                total_train_losss.extend(train_losses)
-                total_dev_losss.extend(dev_losses)
-
-                # logger.log({"train_loss": float(epoch_train_loss),
-                #         "val_loss": float(epoch_dev_loss)})
-
-                history['train_loss'].append(epoch_train_loss)
-                history['val_loss'].append(epoch_dev_loss)
-                history['time'].append(time.time() - start_time)
-                
-                # blue score for each epoch
-                predicted = predict(df_dev, model, src, tar)
-                bl_score = get_blue_score(df_dev, predicted, max_n=max_ngram, tar=tar)
-                bl_scores.append(bl_score)
-
-                if best_belu_loss > bl_score:
-                    best_belu_loss = bl_score
-                    for filename in glob.glob(model_dir + '/best_model*'):
-                        os.remove(filename) 
-                    torch.save(model, model_dir + '/best_model_{}.pt'.format(str(epoch_idx+1)))
-
-            torch.save(model, model_dir + '/last_model.pt')
-
-            pd.DataFrame({"total_train_losss": total_train_losss}).to_csv(model_dir + '/total_train_losss.csv')
-            pd.DataFrame({"total_dev_losss": total_dev_losss}).to_csv(model_dir + '/total_dev_losss.csv')
-            pd.DataFrame(history).to_csv(model_dir + '/history.csv')
-            pd.DataFrame({"blue_score": bl_scores}).to_csv(model_dir + '/each_bl_score.csv')
-
-
-        except Exception as e:
-            with open(model_dir+'/error.txt', 'w') as f:
-                f.write(str(e))
-
-            torch.save(model, model_dir + '/last_model.pt')
-            
-            pd.DataFrame({"total_train_losss": total_train_losss}).to_csv(model_dir + '/total_train_losss.csv')
-            pd.DataFrame({"total_dev_losss": total_dev_losss}).to_csv(model_dir + '/total_dev_losss.csv')
-            pd.DataFrame(history).to_csv(model_dir + '/history.csv')
-
 def test_process(src, tar, model_dir):
     predicted = predict(df_test, model, src, tar)
     #print(predicted)
@@ -365,26 +236,13 @@ def test_process(src, tar, model_dir):
     pd.DataFrame({"blue_score": [bl_score]}).to_csv(model_dir + '/bl_score_{}_{}.csv'.format(src, tar))
 
 langs = list(Language_Token_Mapping.keys())
-for i in range(1):
 
 
-    source_lang = langs[i]
-    target_lang = langs[1-i]
+model_dir = "/".join(best_model_path.split("/")[:2])
+src = best_model_path.split("/")[1].split("_")[-2]
+tar = best_model_path.split("/")[1].split("_")[-3]
 
-    if source_lang=='en':
-        source_lang = target_lang
-        target_lang = 'en'
+test_process(src, tar, model_dir)
 
-    new_model_dir = "{}/{}_{}_{}_{}_{}".format(model_dir, model_repo.replace("/", "-"), data_dir.split('/')[-1], source_lang, target_lang ,n_epochs)
-    # new_model_dir = "{}/{}_{}_{}_{}_{}".format(model_dir, model_repo.replace("/", "-"), "OS_", source_lang, target_lang ,n_epochs)
-    
-    os.makedirs(new_model_dir, exist_ok=True)
-    # wandb.init(project=new_model_dir.split('/')[-1], entity="persian-mt", dir=new_model_dir)
-
-    if need_train:
-        train_process(source_lang, target_lang, new_model_dir, None)
-        print("finish: {}".format(new_model_dir))
-    test_process(source_lang, target_lang, new_model_dir)
-    print("test finsh {}".format(new_model_dir))
 
 
