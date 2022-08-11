@@ -1,6 +1,6 @@
 
 gamil = persianmtbyam@gmail.com
-pass = 123456qwerty
+pass = 123456qwerty&Uamirdehghan
 
 install vpn
 
