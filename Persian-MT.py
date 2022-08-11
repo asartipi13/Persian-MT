@@ -15,6 +15,7 @@ import os, glob
 
 # from torchtext.data.metrics import bleu_score
 from torchmetrics.functional import sacre_bleu_score
+# from torchmetrics import SacreBLEUScore
 
 import wandb
 from transformers import get_linear_schedule_with_warmup
@@ -44,6 +45,7 @@ print(f'device: {device}')
 
 model_repo = sg['model_repo']
 model_dir = sg['model_dir']
+best_model_name = sg['best_model_name']
 
 data_dir = sg['data_dir']
 train_path = data_dir + '/train.csv'
@@ -90,7 +92,7 @@ def get_basic_config():
     if need_train:
         model = AutoModelForSeq2SeqLM.from_pretrained(model_repo)
     else:
-        model = torch.load(model_dir+ '/model.pt')
+        model = torch.load(model_dir+ '/{}.pt'.format(best_model_name))
 
     # tokenizer.save_pretrained('./model-and-tokenizer/')
     # model.save_pretrained('./model-and-tokenizer/')
@@ -380,7 +382,8 @@ for i in range(1):
 
     if need_train:
         train_process(source_lang, target_lang, new_model_dir, None)
-
+        print("finish: {}".format(new_model_dir))
     test_process(source_lang, target_lang, new_model_dir)
+    print("test finsh {}".format(new_model_dir))
 
 

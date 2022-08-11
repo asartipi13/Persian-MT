@@ -8,3 +8,4 @@ matplotlib
 IPython
 wandb==0.12.2
 tqdm
+torchmetrics
