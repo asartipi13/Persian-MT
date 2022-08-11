@@ -356,10 +356,10 @@ def train_process(src, tar, model_dir, logger):
 def test_process(src, tar, model_dir):
     predicted = predict(df_test, model, src, tar)
     #print(predicted)
-    pd.DataFrame({"predicted": predicted}).to_csv(model_dir + '/predicted.csv')
+    pd.DataFrame({"predicted": predicted}).to_csv(model_dir + '/predicted_{}_{}.csv'.format(src, tar))
 
     bl_score = get_blue_score(df_test, predicted, max_n=max_ngram, tar=tar)
-    pd.DataFrame({"blue_score": [bl_score]}).to_csv(model_dir + '/bl_score.csv')
+    pd.DataFrame({"blue_score": [bl_score]}).to_csv(model_dir + '/bl_score_{}_{}.csv'.format(src, tar))
 
 langs = list(Language_Token_Mapping.keys())
 for i in range(1):
