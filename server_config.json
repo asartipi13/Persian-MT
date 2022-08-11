@@ -1,6 +1,6 @@
 {
     "model_repo": "./google/mt5-small",
-    "best_model_name": "",
+    "best_model_path": "",
     "model_dir": "./outs",
     "data_dir": "./data/Bible",
     "max_seq_len": 64,
