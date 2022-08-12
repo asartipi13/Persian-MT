@@ -356,7 +356,7 @@ def train_process(src, tar, model_dir, logger):
             pd.DataFrame({"total_dev_losss": total_dev_losss}).to_csv(model_dir + '/total_dev_losss.csv')
             pd.DataFrame(history).to_csv(model_dir + '/history.csv')
 
-def test_process(src, tar, model_dir):
+def test_process(src, tar, model_dir, model):
     predicted = predict(df_test, model, src, tar)
     #print(predicted)
     pd.DataFrame({"predicted": predicted}).to_csv(model_dir + '/predicted_{}_{}.csv'.format(src, tar))
@@ -384,7 +384,11 @@ for i in range(1):
     if need_train:
         train_process(source_lang, target_lang, new_model_dir, None)
         print("finish: {}".format(new_model_dir))
-    test_process(source_lang, target_lang, new_model_dir)
+
+    best_model_path = glob.glob(new_model_dir + '/best_model*')[0]
+    model = torch.load(best_model_path)
+
+    test_process(source_lang, target_lang, new_model_dir, model)
     print("test finsh {}".format(new_model_dir))
 
 
