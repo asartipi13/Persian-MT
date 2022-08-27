@@ -30,6 +30,13 @@ return_tensors='pt'
 config_path = './server_config.json'
 # config_path = './local_config.json'
 
+
+def remove_nan(df):
+    df = df.dropna()
+    df.drop(df[df['fa'] == ' '].index, inplace=True)
+    df.drop(df[df['en'] == ' '].index, inplace=True)
+    return df
+
 with open(config_path) as sg:
     sg = json.load(sg)
 
@@ -68,6 +75,11 @@ need_train = sg['need_train']
 df_train = pd.read_csv(train_path) if nrows == -1 else pd.read_csv(train_path, nrows=nrows)
 df_dev = pd.read_csv(dev_path) if nrows == -1 else pd.read_csv(dev_path, nrows=nrows)
 df_test = pd.read_csv(test_path) if nrows == -1 else pd.read_csv(test_path, nrows=nrows)
+
+df_train = remove_nan(df_train)
+df_dev = remove_nan(df_dev)
+df_test = remove_nan(df_test)
+
 
 Language_Token_Mapping = {
     df_train.columns[0]: "<" + df_train.columns[0] + ">",
@@ -165,8 +177,11 @@ def transfrom_batch(batch, lang_token_map, tokenizer, seq_len, src, tar):
         translation_set[1], lang_token_map, tokenizer, seq_len, src, tar)
     
     if formatted_data is None:
-      continue
-    
+        continue
+
+    if (torch.nonzero(formatted_data[0]).shape[0] < 3) or (torch.nonzero(formatted_data[1]).shape[0] < 3):
+        continue
+
     input_ids, target_ids = formatted_data
     inputs.append(input_ids.unsqueeze(0))
     targets.append(target_ids.unsqueeze(0))

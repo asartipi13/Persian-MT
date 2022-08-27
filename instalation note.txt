@@ -21,6 +21,17 @@ intall packages
 !git clone https://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@github.com/asartipi13/Persian-MT.git
 
 
+https://drive.google.com/file/d/1BU9NkkHvTW2Le9OLawJQuPW7YzG4qBe0/view?usp=sharing
+
+gdown https://drive.google.com/uc?id=1BU9NkkHvTW2Le9OLawJQuPW7YzG4qBe0
+
+
 conda install -n Persian-MT ipykernel --update-deps --force-reinstall
 
 conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
+
+
+
+آی پی: 172.20.253.40
+یوزر:  amirsartipi
+پسورد: amir1#6293
