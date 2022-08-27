@@ -44,5 +44,6 @@ conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 
 
 آی پی: 172.20.253.40
+172.20.253.44
 یوزر:  amirsartipi
 پسورد: amir1#6293
