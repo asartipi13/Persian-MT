@@ -302,12 +302,13 @@ def train_process(src, tar, model_dir, logger):
                     # Forward pass
                     model_out = model.forward(input_ids = input_batch, labels = label_batch)
 
-                    # Calculate loss and update weights
+                    # Calcula te loss and update weights
                     loss = model_out.loss
-                    train_losses.append(loss.item())
                     loss.backward()
                     optimizer.step()
                     scheduler.step()
+                    train_losses.append(loss.detach().item())
+
 
                     # Print training update info
                     if (batch_idx) % print_freq == 0:
