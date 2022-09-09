@@ -4,3 +4,4 @@ one train_seq = 35 test seq_len=70
 bi train_seq = 35 test seq_len=70
 mizan train_seq = 25 test seq_len=70
 quran train_seq = 60 test seq_len=100
+parsiNLU train_seq = 25 test seq_len=70

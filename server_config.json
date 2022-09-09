@@ -1,16 +1,16 @@
 {
-    "model_repo": "./google/mt5-small",
+    "model_repo": "./facebook/nllb-200-distilled-600M",
     "best_model_path": "",
     "model_dir": "./outs",
-    "data_dir": "./data/Bible",
-    "max_seq_len": 64,
-    "max_seq_test_len": 64,
+    "data_dir": "./data/OpenSubtitles",
+    "max_seq_len": 25,
+    "max_seq_test_len": 70,
     "n_epochs": 7,
-    "train_batch_size": 16,
+    "train_batch_size": 32,
     "test_batch_size": 16,
     "dev_batch_size": 16,
     "lr": 0.001,
     "max_ngram": 4,
-    "nrows": -1,
+    "nrows":-1,
     "need_train": true
 }
